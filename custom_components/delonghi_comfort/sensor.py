@@ -120,22 +120,25 @@ async def async_setup_entry(
 ) -> None:
     """Set up De'Longhi sensor entities."""
     data = hass.data[DOMAIN][config_entry.entry_id]
-    coordinators = data["coordinators"]
 
     entities = []
 
-    for coordinator in coordinators:
+    for coordinator in data["airconditioner_coordinators"]:
         entities.extend(
-            [
-                DeLonghiSensor(
-                    coordinator=coordinator,
-                    description=description,
-                )
-                for description in SENSOR_DESCRIPTIONS
-            ]
+            DeLonghiSensor(coordinator=coordinator, description=description)
+            for description in SENSOR_DESCRIPTIONS
         )
 
-    entities.extend([HeaterTemperature(coordinator=coordinator) for coordinator in data["heater_coordinators"]])
+    entities.extend(
+        HeaterTemperature(coordinator=coordinator)
+        for coordinator in data["heater_coordinators"]
+    )
+
+    entities.extend(
+        DehumidifierSensor(coordinator=coordinator, description=description)
+        for coordinator in data["dehumidifier_coordinators"]
+        for description in DEHUMIDIFIER_SENSOR_DESCRIPTIONS
+    )
 
     async_add_entities(entities)
 
@@ -190,6 +193,79 @@ class DeLonghiSensor(CoordinatorEntity, SensorEntity):
         return (
             super().available and self.entity_description.key in self.coordinator.data
         )
+
+DEHUMIDIFIER_SENSOR_DESCRIPTIONS = (
+    SensorEntityDescription(
+        key="current_humidity",
+        translation_key="room_humidity",
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=PERCENTAGE,
+    ),
+    SensorEntityDescription(
+        key="room_temp",
+        translation_key="room_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+    ),
+    SensorEntityDescription(
+        key="current_speed",
+        translation_key="fan_speed",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="heat_exchanger_temp",
+        translation_key="heat_exchanger_temp",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="alarm_state",
+        translation_key="alarm_state",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+)
+
+
+class DehumidifierSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for De'Longhi dehumidifier devices."""
+
+    _attr_has_entity_name = True
+
+    # Properties requiring ÷10 scaling
+    _SCALED_KEYS = {"room_temp", "heat_exchanger_temp"}
+
+    def __init__(self, coordinator, description: SensorEntityDescription) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = (
+            f"delonghi_dehumidifier_{coordinator.dsn}_{description.key}"  # stable, keep prefix
+        )
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def native_value(self) -> Any:
+        value = self.coordinator.data.get(self.entity_description.key)
+        if value is None:
+            return None
+        if self.entity_description.key in self._SCALED_KEYS:
+            return value / 10
+        return value
+
+    @property
+    def available(self) -> bool:
+        return (
+            super().available
+            and self.entity_description.key in self.coordinator.data
+        )
+
 
 class HeaterTemperature(CoordinatorEntity, SensorEntity):
     """Representation of a De'Longhi heater temperature sensor."""

@@ -51,11 +51,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up De'Longhi number entities."""
     data = hass.data[DOMAIN][config_entry.entry_id]
-    coordinators = data["coordinators"]
+    airconditioner_coordinators = data["airconditioner_coordinators"]
 
     entities = []
 
-    for coordinator in coordinators:
+    for coordinator in airconditioner_coordinators:
         entities.extend(
             [
                 DeLonghiNumber(
