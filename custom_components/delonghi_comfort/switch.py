@@ -216,8 +216,8 @@ class DehumidifierSwitch(CoordinatorEntity, SwitchEntity):
         return value == 1
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        success = await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, self.entity_description.key, 1
+        success = await self.coordinator.async_send_command(
+            self.entity_description.key, 1
         )
         if success:
             await self.coordinator.async_request_refresh()
@@ -225,8 +225,8 @@ class DehumidifierSwitch(CoordinatorEntity, SwitchEntity):
             _LOGGER.error("Failed to turn on %s", self.entity_description.key)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        success = await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, self.entity_description.key, 0
+        success = await self.coordinator.async_send_command(
+            self.entity_description.key, 0
         )
         if success:
             await self.coordinator.async_request_refresh()

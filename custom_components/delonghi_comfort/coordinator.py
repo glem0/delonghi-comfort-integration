@@ -30,6 +30,11 @@ DEVICE_REPORT_PROPERTIES = {
     "color",
 }
 
+# Ayla command delivery is best-effort: a device state report can overwrite a
+# queued command before the device sees it. Critical commands are verified
+# against the device-reported value and re-sent up to this many polls.
+COMMAND_RETRY_ATTEMPTS = 8
+
 
 class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to manage data updates for De'Longhi devices."""
@@ -57,6 +62,7 @@ class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_name = device_info.get("product_name", f"De'Longhi {dsn}")
         self.device_model = device_info.get("model", "Unknown")
         self.device_version = device_info.get("sw_version")
+        self._pending_commands: dict[str, dict] = {}
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the API."""
@@ -76,10 +82,61 @@ class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             last_report = ts
             data["last_device_report"] = last_report
 
+            # Re-send any commands the device has not confirmed yet.
+            for prop, value in self._check_pending(data):
+                _LOGGER.debug(
+                    "Re-sending %s=%s (not yet confirmed by device)", prop, value
+                )
+                await self.api.set_device_property(self.dsn, prop, value)
+
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
         else:
             return data
+
+    async def async_send_command(
+        self,
+        prop: str,
+        value,
+        verify_prop: str | None = None,
+        verify_value=None,
+    ) -> bool:
+        """Write a property and register a verification expectation.
+
+        The command is re-sent on subsequent polls until the device-reported
+        value matches (see COMMAND_RETRY_ATTEMPTS).
+        """
+        success = await self.api.set_device_property(self.dsn, prop, value)
+        if success:
+            self._pending_commands[prop] = {
+                "value": value,
+                "verify_prop": verify_prop or prop,
+                "verify_value": value if verify_value is None else verify_value,
+                "attempts_left": COMMAND_RETRY_ATTEMPTS,
+            }
+        return success
+
+    def _check_pending(self, data: dict) -> list[tuple[str, object]]:
+        """Return commands to re-send based on the latest device data."""
+        rewrites: list[tuple[str, object]] = []
+        for prop, pend in list(self._pending_commands.items()):
+            current = data.get(pend["verify_prop"])
+            if current == pend["verify_value"]:
+                del self._pending_commands[prop]
+                continue
+            if pend["attempts_left"] <= 0:
+                _LOGGER.warning(
+                    "Command %s=%s not confirmed by device after retries (%s=%s)",
+                    prop,
+                    pend["value"],
+                    pend["verify_prop"],
+                    current,
+                )
+                del self._pending_commands[prop]
+                continue
+            pend["attempts_left"] -= 1
+            rewrites.append((prop, pend["value"]))
+        return rewrites
 
     def get_device_info(self) -> DeviceInfo:
         """Return device information for this coordinator."""

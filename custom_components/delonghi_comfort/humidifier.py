@@ -44,12 +44,14 @@ REALFEEL_ON = "AQIDChIXHEY8Mig="
 REALFEEL_OFF = "AAIDChIXHEY8Mig="
 
 
-async def async_write_device_mode(api, dsn: str, value: int) -> bool:
-    """Write device_mode together with its companion activate_realfeel flag."""
+async def async_write_device_mode(coordinator, value: int) -> bool:
+    """Write device_mode with its companion flag; verify/retry via the coordinator."""
     flag = REALFEEL_ON if value == 4 else REALFEEL_OFF
-    if not await api.set_device_property(dsn, "activate_realfeel", flag):
-        _LOGGER.warning("Failed to write activate_realfeel flag on %s", dsn)
-    return await api.set_device_property(dsn, "device_mode", value)
+    if not await coordinator.api.set_device_property(
+        coordinator.dsn, "activate_realfeel", flag
+    ):
+        _LOGGER.warning("Failed to write activate_realfeel flag on %s", coordinator.dsn)
+    return await coordinator.async_send_command("device_mode", value)
 
 
 
@@ -102,16 +104,16 @@ class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
         return DEVICE_MODE_TO_DEHUMIDIFIER.get(value)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        if await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, "set_status", 1
+        if await self.coordinator.async_send_command(
+            "set_status", 1, verify_prop="device_status", verify_value=1
         ):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to turn on dehumidifier %s", self.coordinator.dsn)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        if await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, "set_status", 2
+        if await self.coordinator.async_send_command(
+            "set_status", 2, verify_prop="device_status", verify_value=2
         ):
             await self.coordinator.async_request_refresh()
         else:
@@ -120,9 +122,7 @@ class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
     async def async_set_humidity(self, humidity: int) -> None:
         # App seekbar covers 30-80 continuously (value = progress + 30) — clamp only.
         humidity = max(30, min(80, int(humidity)))
-        if await self.coordinator.api.set_humidity_setpoint(
-            self.coordinator.dsn, humidity
-        ):
+        if await self.coordinator.async_send_command("humidity_setpoint", humidity):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set humidity setpoint on %s", self.coordinator.dsn)
@@ -132,7 +132,7 @@ class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
         if value is None:
             _LOGGER.error("Unknown dehumidifier mode: %s", mode)
             return
-        if await async_write_device_mode(self.coordinator.api, self.coordinator.dsn, value):
+        if await async_write_device_mode(self.coordinator, value):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set dehumidifier mode to %s", mode)

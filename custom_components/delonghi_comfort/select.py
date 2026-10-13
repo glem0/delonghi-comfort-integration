@@ -173,9 +173,7 @@ class DehumidifierModeSelect(CoordinatorEntity, SelectEntity):
         if value is None:
             _LOGGER.error("Unknown dehumidifier mode: %s", option)
             return
-        success = await async_write_device_mode(
-            self.coordinator.api, self.coordinator.dsn, value
-        )
+        success = await async_write_device_mode(self.coordinator, value)
         if success:
             await self.coordinator.async_request_refresh()
         else:

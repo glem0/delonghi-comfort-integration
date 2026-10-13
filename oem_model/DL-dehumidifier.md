@@ -114,6 +114,8 @@ Values confirmed against app constants (`DdsxProperty$DDSX_DEVICE_MODE`: 1=HUMID
 
 `set_status` holds the last user command — the schedule or an alarm can override it without updating `set_status`. Always use `device_status` for `is_on`.
 
+**Command delivery is best-effort.** Writes land cloud-side immediately, but the device may re-report its current state before a queued command is delivered, overwriting it (appears as a "revert"). Critical commands (power, mode, humidity setpoint, eco) are therefore verified against the device-reported value and re-sent up to `COMMAND_RETRY_ATTEMPTS` (8) polls (~2 min) by the integration.
+
 Different from the A/C (`set_device_status` / `get_device_status`) but same as the heater (`set_status`).
 
 ---
