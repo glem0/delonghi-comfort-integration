@@ -39,6 +39,11 @@ DEHUMIDIFIER_SWITCH_DESCRIPTIONS = (
         translation_key="swing",
         icon="mdi:arrow-oscillating",
     ),
+    SwitchEntityDescription(
+        key="activate_schedule",
+        translation_key="schedule",
+        icon="mdi:calendar-clock",
+    ),
 )
 
 HEATER_DESCRIPTIONS = (

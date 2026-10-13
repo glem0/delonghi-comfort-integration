@@ -1,0 +1,36 @@
+set_schedule:
+  name: Set weekly schedule
+  description: >-
+    Write a weekly schedule to a De'Longhi dehumidifier: 7 day rows
+    (Monday..Sunday), 24 one-hour slots each, from the set {0, A, B, C}
+    where 0 = off and A/B/C are the preset modes (humidity setpoint + fan).
+  fields:
+    dsn:
+      name: Device DSN
+      description: Only required when more than one dehumidifier is configured.
+      required: false
+      example: AC000W031829218
+      selector:
+        text:
+    week:
+      name: Week
+      description: >-
+        List of 7 strings, Monday first; each string is 24 characters, one
+        per hour, each being 0 (off), A, B or C.
+      required: false
+      selector:
+        object:
+    modes:
+      name: Preset modes
+      description: >-
+        Optional preset settings, e.g. {"A": {"humidity": 50, "fan": 1}}.
+        humidity is the % target, fan is 0-15 (1=low, 2=medium, 3=high).
+      required: false
+      selector:
+        object:
+    activate:
+      name: Activate
+      description: Also switch the schedule itself on or off.
+      required: false
+      selector:
+        boolean:

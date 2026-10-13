@@ -19,6 +19,7 @@ from .const import (
 )
 from .api import DeLonghiAPI
 from .coordinator import DeLonghiCoordinator
+from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register integration services (once)
+    await async_setup_services(hass)
 
     # Preload integration strings into the translation cache so the frontend
     # websocket can serve entity.* keys (custom integrations are not always

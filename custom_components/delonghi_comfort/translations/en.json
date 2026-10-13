@@ -93,6 +93,9 @@
       },
       "last_device_report": {
         "name": "Last device report"
+      },
+      "schedule": {
+        "name": "Weekly schedule"
       }
     },
     "number": {
@@ -115,6 +118,9 @@
       },
       "swing": {
         "name": "Swing"
+      },
+      "schedule": {
+        "name": "Schedule"
       }
     },
     "binary_sensor": {

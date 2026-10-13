@@ -25,6 +25,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .schedule import decode_for_display as schedule_decode_for_display
+from .schedule import summarise as schedule_summarise
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -248,6 +250,11 @@ DEHUMIDIFIER_SENSOR_DESCRIPTIONS = (
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    SensorEntityDescription(
+        key="set_schedule",
+        translation_key="schedule",
+        icon="mdi:calendar-week",
+    ),
 )
 
 
@@ -279,6 +286,11 @@ class DehumidifierSensor(CoordinatorEntity, SensorEntity):
                 return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
             except ValueError:
                 return None
+        if self.entity_description.key == "set_schedule":
+            try:
+                return schedule_summarise(value)
+            except Exception:
+                return None
         if self.entity_description.key == "current_speed":
             return {0: "Off", 1: "Low", 2: "Medium", 3: "High"}.get(value, value)
         if self.entity_description.key == "color":
@@ -286,6 +298,18 @@ class DehumidifierSensor(CoordinatorEntity, SensorEntity):
         if self.entity_description.key in self._SCALED_KEYS:
             return value / 10
         return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.key != "set_schedule":
+            return None
+        value = self.coordinator.data.get("set_schedule")
+        if not value:
+            return None
+        try:
+            return schedule_decode_for_display(value)
+        except Exception:
+            return None
 
     @property
     def available(self) -> bool:
