@@ -183,6 +183,49 @@ Errors E1/E2 (`1`/`2`) and frost (`4`) are exposed as binary sensors (`error`, `
 
 ---
 
+## Weekly Schedule
+
+`set_schedule` (read/write) carries a base64 payload. Decoded it is a
+104-character hex string (52 bytes):
+
+* 20 hex chars (80 bits) — header:
+  `[hour:5][day:3][minute:6][timer_type:2][x:8][y:8][z:8]`
+  `[humidity_A:8 (value ×2)][humidity_B:8][humidity_C:8]`
+  `[fan_A:4][fan_B:4][fan_C:4][0000:4]`
+  (hour/day/minute are the phone time at the last write; the device executes
+  on its own clock, so the HA codec preserves these fields from the existing
+  payload.)
+* 84 hex chars — the weekly grid: 7 day-blocks × 48 bits, each block 24
+  one-hour slots of 2 bits, hour 0 first, most-significant bits first.
+
+Slot codes: `00` = off, `11` = preset A, `10` = preset B, `01` = preset C
+(as 2-bit integers: 0 = off, 1 = C, 2 = B, 3 = A).
+
+The physical block order is rotated: logical day `d` (0-based) is stored in
+block `(d + 1) % 7`. Day 0 is assumed to be Monday.
+
+`activate_schedule` (0/1) enables or disables the schedule.
+
+HA surface (implemented in `schedule.py` + `switch.py` + `sensor.py` +
+`services.py`):
+
+| Entity / service | Purpose |
+|---|---|
+| `switch.<dehumidifier>_schedule` | `activate_schedule` — enable/disable the schedule |
+| `sensor.<dehumidifier>_weekly_schedule` | Summary state; decoded days/modes in attributes |
+| `delonghi_comfort.set_schedule` | Write a schedule: `week` (7 rows of 24 chars, `0`/`A`/`B`/`C`), `modes` (per-preset humidity/fan), `activate` |
+
+Notes:
+
+* The official app also keeps its own cloud copy (an Ayla datum) of the
+  schedule; writes done from HA update the device but not that app copy, so
+  the app UI may show a stale schedule.
+* Codec verified bit-exact against the device's own payload (round-trip on
+  the live `set_schedule` value, and a crafted payload written to the unit
+  reads back unchanged).
+
+---
+
 ## Open Questions
 
 *None.*
