@@ -1,6 +1,11 @@
 """The De'Longhi Comfort integration."""
 
+import hashlib
 import logging
+from pathlib import Path
+
+from homeassistant.components import frontend
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -22,6 +27,42 @@ from .coordinator import DeLonghiCoordinator
 from .services import async_setup_services
 
 _LOGGER = logging.getLogger(__name__)
+
+CARD_STATIC_URL = "/delonghi_comfort_static"
+CARD_FILE_NAME = "schedule-card.js"
+
+
+async def _async_register_schedule_card(hass: HomeAssistant) -> None:
+    """Serve the schedule Lovelace card and auto-load it as a frontend module."""
+    data = hass.data.setdefault(DOMAIN, {})
+    if data.get("schedule_card_registered"):
+        return
+
+    card_file = Path(__file__).parent / "www" / CARD_FILE_NAME
+
+    def _card_version() -> str | None:
+        if not card_file.is_file():
+            return None
+        return hashlib.sha256(card_file.read_bytes()).hexdigest()[:10]
+
+    version = await hass.async_add_executor_job(_card_version)
+    if version is None:
+        _LOGGER.warning("Schedule card file not found: %s", card_file)
+        return
+
+    try:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_STATIC_URL, str(card_file.parent), False)]
+        )
+    except RuntimeError:
+        # Already registered (e.g. a reload without a full HA restart)
+        pass
+
+    frontend.add_extra_js_url(
+        hass, f"{CARD_STATIC_URL}/{CARD_FILE_NAME}?v={version}"
+    )
+    data["schedule_card_registered"] = True
+
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -90,6 +131,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Register integration services (once)
     await async_setup_services(hass)
+
+    # Serve and auto-load the schedule Lovelace card
+    await _async_register_schedule_card(hass)
 
     # Preload integration strings into the translation cache so the frontend
     # websocket can serve entity.* keys (custom integrations are not always
