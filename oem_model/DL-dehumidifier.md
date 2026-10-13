@@ -213,6 +213,10 @@ HA surface (implemented in `schedule.py` + `switch.py` + `sensor.py` +
 |---|---|
 | `switch.<dehumidifier>_schedule` | `activate_schedule` — enable/disable the schedule |
 | `sensor.<dehumidifier>_weekly_schedule` | Summary state; decoded days/modes in attributes |
+| `text.<dehumidifier>_schedule_monday` … `_sunday` | Editable 24-char row per day (hours 0-23, chars `0`/`A`/`B`/`C`) |
+| `number.<dehumidifier>_preset_a_humidity` (…b/c) | Preset humidity targets (30-80 %, step 5) |
+| `select.<dehumidifier>_preset_a_fan` (…b/c) | Preset fans (Off/Low/Medium/High) |
+| `calendar.<dehumidifier>_schedule` | Weekly schedule expanded into calendar events (view) |
 | `delonghi_comfort.set_schedule` | Write a schedule: `week` (7 rows of 24 chars, `0`/`A`/`B`/`C`), `modes` (per-preset humidity/fan), `activate` |
 
 Notes:

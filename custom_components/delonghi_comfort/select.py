@@ -6,7 +6,9 @@ import logging
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -52,6 +54,12 @@ async def async_setup_entry(
     for coordinator in data["dehumidifier_coordinators"]:
         entities.append(DehumidifierModeSelect(coordinator=coordinator))
         entities.append(DehumidifierFanSpeedSelect(coordinator=coordinator))
+        entities.extend(
+            DehumidifierPresetFanSelect(
+                coordinator=coordinator, key=key, letter=letter
+            )
+            for key, letter in PRESET_FAN_DESCRIPTIONS
+        )
 
     async_add_entities(entities)
 
@@ -222,3 +230,54 @@ class DehumidifierFanSpeedSelect(CoordinatorEntity, SelectEntity):
     @property
     def available(self) -> bool:
         return super().available and "rotation_speed" in self.coordinator.data
+
+
+# Preset fan control — writes the per-preset fan value in the decoded schedule.
+# Raw device values (0=Off, 1=Low, 2=Medium, 3=High).
+PRESET_FAN_TO_RAW = {"Off": 0, "Low": 1, "Medium": 2, "High": 3}
+RAW_TO_PRESET_FAN = {v: k for k, v in PRESET_FAN_TO_RAW.items()}
+
+# (translation_key, schedule preset letter)
+PRESET_FAN_DESCRIPTIONS = (
+    ("preset_a_fan", "A"),
+    ("preset_b_fan", "B"),
+    ("preset_c_fan", "C"),
+)
+
+
+class DehumidifierPresetFanSelect(CoordinatorEntity, SelectEntity):
+    """Preset fan select for a De'Longhi dehumidifier schedule preset."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:fan"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_options = list(PRESET_FAN_TO_RAW)
+
+    def __init__(self, coordinator, key: str, letter: str) -> None:
+        super().__init__(coordinator)
+        self._preset_letter = letter
+        self._attr_translation_key = key
+        self._attr_unique_id = f"delonghi_dehumidifier_{coordinator.dsn}_{key}"
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def current_option(self) -> str | None:
+        schedule = self.coordinator.schedule
+        if not schedule:
+            return None
+        try:
+            raw = schedule["modes"][self._preset_letter]["fan"]
+        except (KeyError, TypeError):
+            return None
+        return RAW_TO_PRESET_FAN.get(raw)
+
+    async def async_select_option(self, option: str) -> None:
+        value = PRESET_FAN_TO_RAW.get(option)
+        if value is None:
+            _LOGGER.error("Unknown dehumidifier preset fan: %s", option)
+            return
+        decoded = self.coordinator.schedule
+        if decoded is None:
+            raise HomeAssistantError("Device has not reported a schedule yet")
+        decoded["modes"][self._preset_letter]["fan"] = value
+        await self.coordinator.async_write_schedule(decoded)

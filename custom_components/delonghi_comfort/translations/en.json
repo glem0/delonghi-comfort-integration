@@ -104,6 +104,15 @@
       },
       "humidity_setpoint": {
         "name": "Humidity setpoint"
+      },
+      "preset_a_humidity": {
+        "name": "Preset A humidity"
+      },
+      "preset_b_humidity": {
+        "name": "Preset B humidity"
+      },
+      "preset_c_humidity": {
+        "name": "Preset C humidity"
       }
     },
     "switch": {
@@ -171,6 +180,43 @@
       },
       "dehumidifier_fan_speed": {
         "name": "Fan speed"
+      },
+      "preset_a_fan": {
+        "name": "Preset A fan"
+      },
+      "preset_b_fan": {
+        "name": "Preset B fan"
+      },
+      "preset_c_fan": {
+        "name": "Preset C fan"
+      }
+    },
+    "calendar": {
+      "schedule": {
+        "name": "Weekly schedule"
+      }
+    },
+    "text": {
+      "schedule_monday": {
+        "name": "Schedule Monday"
+      },
+      "schedule_tuesday": {
+        "name": "Schedule Tuesday"
+      },
+      "schedule_wednesday": {
+        "name": "Schedule Wednesday"
+      },
+      "schedule_thursday": {
+        "name": "Schedule Thursday"
+      },
+      "schedule_friday": {
+        "name": "Schedule Friday"
+      },
+      "schedule_saturday": {
+        "name": "Schedule Saturday"
+      },
+      "schedule_sunday": {
+        "name": "Schedule Sunday"
       }
     }
   }

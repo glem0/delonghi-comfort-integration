@@ -5,11 +5,13 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import DeLonghiAPI
 from .const import SCAN_INTERVAL, CONF_SCAN_INTERVAL, DOMAIN
+from .schedule import decode as schedule_decode, encode as schedule_encode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,6 +117,28 @@ class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "attempts_left": COMMAND_RETRY_ATTEMPTS,
             }
         return success
+
+    # ------------------------------------------------------------------
+    # Weekly schedule (payload format: see schedule.py)
+    # ------------------------------------------------------------------
+    @property
+    def schedule(self) -> dict[str, Any] | None:
+        """Decoded weekly schedule, or None if the device has not reported one."""
+        payload = self.data.get("set_schedule") if self.data else None
+        if not payload:
+            return None
+        try:
+            return schedule_decode(payload)
+        except Exception:
+            _LOGGER.warning("Could not decode set_schedule payload from %s", self.dsn)
+            return None
+
+    async def async_write_schedule(self, decoded: dict[str, Any]) -> None:
+        """Encode and write a decoded schedule back to the device."""
+        payload = schedule_encode(decoded)
+        if not await self.api.set_device_property(self.dsn, "set_schedule", payload):
+            raise HomeAssistantError("Failed to write schedule to the device")
+        await self.async_request_refresh()
 
     def _check_pending(self, data: dict) -> list[tuple[str, object]]:
         """Return commands to re-send based on the latest device data."""

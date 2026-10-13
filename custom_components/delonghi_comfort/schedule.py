@@ -28,7 +28,8 @@ from typing import Any
 # 2-bit slot values: 0="00" (off), 1="01" (preset C), 2="10" (preset B), 3="11" (preset A)
 SLOT_LABELS = {0: "off", 1: "C", 2: "B", 3: "A"}
 LABEL_SLOTS = {v: k for k, v in SLOT_LABELS.items()}
-# Single-character form used by the set_schedule service
+# Single-character form used by the set_schedule service and schedule entities
+SLOT_CHARS = {0: "0", 1: "C", 2: "B", 3: "A"}
 CHAR_SLOTS = {"0": 0, "C": 1, "B": 2, "A": 3}
 
 HEADER_HEX = 20  # chars
