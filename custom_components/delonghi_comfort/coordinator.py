@@ -13,6 +13,23 @@ from .const import SCAN_INTERVAL, CONF_SCAN_INTERVAL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+# Device-originated (output) properties — used to compute the last time the
+# unit actually reported anything. Command/input properties are excluded so
+# that our own writes do not count as device activity.
+DEVICE_REPORT_PROPERTIES = {
+    "device_status",
+    "current_speed",
+    "current_humidity",
+    "room_temp",
+    "heat_exchanger_temp",
+    "status_history",
+    "alarm_state",
+    "filter_life",
+    "filter_status",
+    "filter_change_alarm",
+    "color",
+}
+
 
 class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator to manage data updates for De'Longhi devices."""
@@ -48,10 +65,16 @@ class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             # Parse properties into a more usable format
             data = {}
+            last_report = None
             for prop in properties:
                 if "property" in prop:
                     prop_info = prop["property"]
                     data[prop_info["name"]] = prop_info["value"]
+                    if prop_info["name"] in DEVICE_REPORT_PROPERTIES:
+                        ts = prop_info.get("data_updated_at")
+                        if ts and (last_report is None or ts > last_report):
+                            last_report = ts
+            data["last_device_report"] = last_report
 
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
@@ -66,5 +89,8 @@ class DeLonghiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             model=self.data.get("appliance_model"),
             name=self.device_name,
             hw_version=self.data.get("hardware_version"),
-            sw_version=f"Fireware MDH:{self.data.get('firmware_version')} / Wi-Fi Module:{self.data.get('mcu_host_version')}",
+            sw_version=(
+                f"Firmware MDH:{self.data.get('firmware_version')} / Wi-Fi Module:{self.data.get('mcu_host_version')}"
+                + (f" / OEM:{self.data['oem_host_version']}" if self.data.get("oem_host_version") else "")
+            ),
         )

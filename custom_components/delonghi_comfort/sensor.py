@@ -231,6 +231,28 @@ DEHUMIDIFIER_SENSOR_DESCRIPTIONS = (
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
     ),
+    SensorEntityDescription(
+        key="filter_life",
+        translation_key="filter_life",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="filter_status",
+        translation_key="filter_status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="color",
+        translation_key="real_feel_color",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="last_device_report",
+        translation_key="last_device_report",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 
@@ -255,6 +277,10 @@ class DehumidifierSensor(CoordinatorEntity, SensorEntity):
         value = self.coordinator.data.get(self.entity_description.key)
         if value is None:
             return None
+        if self.entity_description.key == "current_speed":
+            return {0: "Off", 1: "Low", 2: "Medium", 3: "High"}.get(value, value)
+        if self.entity_description.key == "color":
+            return {0: "Good", 1: "Fair", 2: "Bad", 101: "Not found"}.get(value, value)
         if self.entity_description.key in self._SCALED_KEYS:
             return value / 10
         return value

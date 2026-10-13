@@ -84,6 +84,18 @@
       },
       "alarm_state": {
         "name": "Alarm state"
+      },
+      "filter_life": {
+        "name": "Filter life"
+      },
+      "filter_status": {
+        "name": "Filter status"
+      },
+      "real_feel_color": {
+        "name": "RealFeel comfort"
+      },
+      "last_device_report": {
+        "name": "Last device report"
       }
     },
     "number": {
@@ -116,6 +128,11 @@
         "name": "Filter warning"
       }
     },
+    "button": {
+      "filter_reset": {
+        "name": "Reset filter"
+      }
+    },
     "humidifier": {
       "dehumidifier": {
         "name": "Dehumidifier",
@@ -142,6 +159,9 @@
           "dry": "Dry Mode",
           "fan_only": "Fan Only"
         }
+      },
+      "dehumidifier_fan_speed": {
+        "name": "Fan speed"
       }
     }
   }

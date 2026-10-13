@@ -45,10 +45,9 @@ async def async_setup_entry(
         for coordinator in data["heater_coordinators"]
     )
 
-    entities.extend(
-        DehumidifierModeSelect(coordinator=coordinator)
-        for coordinator in data["dehumidifier_coordinators"]
-    )
+    for coordinator in data["dehumidifier_coordinators"]:
+        entities.append(DehumidifierModeSelect(coordinator=coordinator))
+        entities.append(DehumidifierFanSpeedSelect(coordinator=coordinator))
 
     async_add_entities(entities)
 
@@ -181,3 +180,43 @@ class DehumidifierModeSelect(CoordinatorEntity, SelectEntity):
     @property
     def available(self) -> bool:
         return super().available and "device_mode" in self.coordinator.data
+
+
+# Fan speed control — writes rotation_speed; readback via current_speed.
+# Values per app constants (DdsxFanSpeed: 1=Low, 2=Medium, 3=High).
+FAN_SPEED_TO_ROTATION = {"Low": 1, "Medium": 2, "High": 3}
+ROTATION_TO_FAN_SPEED = {v: k for k, v in FAN_SPEED_TO_ROTATION.items()}
+
+
+class DehumidifierFanSpeedSelect(CoordinatorEntity, SelectEntity):
+    """Fan speed select for De'Longhi dehumidifier (rotation_speed)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "dehumidifier_fan_speed"
+    _attr_options = list(FAN_SPEED_TO_ROTATION)
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"delonghi_dehumidifier_{coordinator.dsn}_fan_speed"
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def current_option(self) -> str | None:
+        return ROTATION_TO_FAN_SPEED.get(self.coordinator.data.get("rotation_speed"))
+
+    async def async_select_option(self, option: str) -> None:
+        value = FAN_SPEED_TO_ROTATION.get(option)
+        if value is None:
+            _LOGGER.error("Unknown dehumidifier fan speed: %s", option)
+            return
+        success = await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, "rotation_speed", value
+        )
+        if success:
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to set dehumidifier fan speed to %s", option)
+
+    @property
+    def available(self) -> bool:
+        return super().available and "rotation_speed" in self.coordinator.data
