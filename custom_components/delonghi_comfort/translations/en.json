@@ -85,9 +85,6 @@
       "alarm_state": {
         "name": "Alarm state"
       },
-      "filter_life": {
-        "name": "Filter life"
-      },
       "filter_status": {
         "name": "Filter status"
       },

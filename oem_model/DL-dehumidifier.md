@@ -49,9 +49,10 @@ Properties delivered via `apiv1/dsns/{dsn}/properties.json`.
 
 | Property | Type | rw/ro | Notes |
 |---|---|---|---|
-| `filter_change_alarm` | boolean | ro | **Unused** — always `0` even when filter warning active. Ignore. |
-| `filter_status` | boolean | ro | **Unreliable** — stale, does not update. Use `alarm_state & 4` instead. |
-| `filter_reset` | boolean | rw | Write `1` to reset filter life counter |
+| `filter_life` | integer | ro | Opaque counter — constant since registration (observed `458960`); never read by the app. Not exposed. |
+| `filter_change_alarm` | boolean | ro | Alarm-change flag; read by the app. Observed constant `0` on DDSX220. |
+| `filter_status` | boolean | ro | Filter condition as used by the app (`0`=OK, `1`=needs attention). Complement with `alarm_state == 5`. |
+| `filter_reset` | boolean | rw | Write `1` to reset the filter-life counter (exposed as a button). |
 
 ### Feature Switches
 

@@ -233,15 +233,9 @@ DEHUMIDIFIER_SENSOR_DESCRIPTIONS = (
         entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
-        key="filter_life",
-        translation_key="filter_life",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
-    SensorEntityDescription(
         key="filter_status",
         translation_key="filter_status",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
         key="color",
