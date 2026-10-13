@@ -57,7 +57,7 @@ Properties delivered via `apiv1/dsns/{dsn}/properties.json`.
 
 | Property | Type | rw/ro | Notes |
 |---|---|---|---|
-| `swing` | boolean | rw | Louvre oscillation — `1`=on, `0`=off |
+| `swing` | boolean | rw | Louvre oscillation — `1`=on, `0`=off. Accepted by the cloud but has no physical effect on units without a motorized louvre (observed on DDSX220) |
 | `set_eco` | boolean | rw | Eco mode — `1`=on, `0`=off |
 | `activate_schedule` | boolean | rw | Whether the timer schedule is active |
 
@@ -93,13 +93,14 @@ Write target: `apiv1/dsns/{dsn}/properties/device_mode/datapoints.json`
 
 | Value | App name | Behaviour |
 |---|---|---|
-| `1` | Dehumidify | Target-humidity mode — runs until `humidity_setpoint` is reached |
-| `2` | Dry Mode | Max dehumidification — ignores `humidity_setpoint`, runs continuously |
-| `3` | Fan Only | Fan only — no dehumidification |
+| `1` | Humidity | Target-humidity mode — runs until `humidity_setpoint` is reached |
+| `2` | Laundry | Max dehumidification — ignores `humidity_setpoint`, runs continuously |
+| `3` | Air | Fan only — no dehumidification |
+| `4` | RealFeel | Automatic comfort mode |
 
-All three values confirmed from app UI. No value `4` — do not assume it exists.
+Values confirmed against app constants (`DdsxProperty$DDSX_DEVICE_MODE`: 1=HUMIDITY, 2=LAUNDRY, 3=AIR, 4=REAL_FEEL).
 
-**Implementation:** `SelectEntity` with options `["dehumidify", "dry", "fan_only"]`.
+**Implementation:** `SelectEntity` with options `["dehumidify", "dry", "fan_only", "real_feel"]`.
 
 ---
 
@@ -125,18 +126,22 @@ This is a firmware-level encoding. Apply `÷10` only in dehumidifier-specific en
 
 ## Alarm State
 
-Bitmask integer. Test individual bits — do not compare the whole value.
+Enum — compare the whole value (verified against app constants `DdsxProperty$ALARM_STATE`).
 
-| Bit | Value | Meaning |
-|---|---|---|
-| 0 | `1` | Any alarm active / device halted |
-| 1 | `2` | Water tank full |
-| 2 | `4` | Filter needs changing |
+| Value | Meaning |
+|---|---|
+| `0` | No alarm |
+| `1` | Error E1 |
+| `2` | Error E2 |
+| `3` | Water tank full |
+| `4` | Frost protection |
+| `5` | Filter needs changing |
 
-- Filter warning: `alarm_state & 4`
-- Tank full: `alarm_state & 2`
-- Any alarm: `alarm_state & 1`
+- Tank full: `alarm_state == 3`
+- Filter warning: `alarm_state == 5`
 - All clear: `alarm_state == 0`
+
+Errors E1/E2 (`1`/`2`) and frost (`4`) are not currently exposed as entities.
 
 ---
 

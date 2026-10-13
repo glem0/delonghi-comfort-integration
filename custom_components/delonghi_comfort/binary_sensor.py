@@ -19,7 +19,8 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-# alarm_state bitmask:  bit 1 (value 2) = tank full,  bit 2 (value 4) = filter warning
+# alarm_state is an enum (verified against app constants DdsxProperty$ALARM_STATE):
+# 0 = none, 1 = E1, 2 = E2, 3 = tank full, 4 = frost, 5 = change filter
 DEHUMIDIFIER_BINARY_SENSOR_DESCRIPTIONS = (
     BinarySensorEntityDescription(
         key="alarm_tank_full",
@@ -35,9 +36,9 @@ DEHUMIDIFIER_BINARY_SENSOR_DESCRIPTIONS = (
     ),
 )
 
-_ALARM_MASKS = {
-    "alarm_tank_full": 2,
-    "alarm_filter_warning": 4,
+_ALARM_VALUES = {
+    "alarm_tank_full": 3,
+    "alarm_filter_warning": 5,
 }
 
 
@@ -57,7 +58,7 @@ async def async_setup_entry(
 
 
 class DehumidifierBinarySensor(CoordinatorEntity, BinarySensorEntity):
-    """Binary sensor derived from the alarm_state bitmask."""
+    """Binary sensor derived from the alarm_state enum."""
 
     _attr_has_entity_name = True
 
@@ -72,8 +73,7 @@ class DehumidifierBinarySensor(CoordinatorEntity, BinarySensorEntity):
         alarm_state = self.coordinator.data.get("alarm_state")
         if alarm_state is None:
             return None
-        mask = _ALARM_MASKS[self.entity_description.key]
-        return bool(alarm_state & mask)
+        return alarm_state == _ALARM_VALUES[self.entity_description.key]
 
     @property
     def available(self) -> bool:

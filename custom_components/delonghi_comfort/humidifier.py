@@ -30,6 +30,7 @@ DEVICE_MODE_TO_DEHUMIDIFIER = {
     1: "dehumidify",
     2: "dry",
     3: "fan_only",
+    4: "real_feel",
 }
 DEHUMIDIFIER_TO_DEVICE_MODE = {v: k for k, v in DEVICE_MODE_TO_DEHUMIDIFIER.items()}
 
