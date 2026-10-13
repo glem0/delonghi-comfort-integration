@@ -32,12 +32,15 @@ _LOGGER = logging.getLogger(__name__)
 CARD_STATIC_URL = "/delonghi_comfort_static"
 CARD_FILE_NAME = "schedule-card.js"
 SCHEDULE_PANEL_PATH = "delonghi-schedule"
+# Frontend registration state lives outside hass.data[DOMAIN], which holds
+# exactly one dict per config entry (services iterate it).
+FRONTEND_DATA_KEY = f"{DOMAIN}_frontend"
 
 
 async def _async_register_schedule_card(hass: HomeAssistant) -> None:
     """Serve the schedule card/panel and auto-load the frontend module."""
-    data = hass.data.setdefault(DOMAIN, {})
-    if data.get("schedule_card_registered"):
+    data = hass.data.setdefault(FRONTEND_DATA_KEY, {})
+    if data.get("card_registered"):
         return
 
     card_file = Path(__file__).parent / "www" / CARD_FILE_NAME
@@ -77,7 +80,7 @@ async def _async_register_schedule_card(hass: HomeAssistant) -> None:
             require_admin=False,
         )
 
-    data["schedule_card_registered"] = True
+    data["card_registered"] = True
 
 
 PLATFORMS: list[Platform] = [
@@ -168,7 +171,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
         if SCHEDULE_PANEL_PATH in hass.data.get(frontend.DATA_PANELS, {}):
             frontend.async_remove_panel(hass, SCHEDULE_PANEL_PATH)
-        hass.data.get(DOMAIN, {}).pop("schedule_card_registered", None)
+        hass.data.get(FRONTEND_DATA_KEY, {}).pop("card_registered", None)
 
     return unload_ok
 
