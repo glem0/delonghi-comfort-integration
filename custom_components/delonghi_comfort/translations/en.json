@@ -123,6 +123,12 @@
       },
       "filter_warning": {
         "name": "Filter warning"
+      },
+      "error": {
+        "name": "Error"
+      },
+      "frost": {
+        "name": "Frost protection"
       }
     },
     "button": {

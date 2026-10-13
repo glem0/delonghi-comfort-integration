@@ -142,7 +142,7 @@ Enum — compare the whole value (verified against app constants `DdsxProperty$A
 - Filter warning: `alarm_state == 5`
 - All clear: `alarm_state == 0`
 
-Errors E1/E2 (`1`/`2`) and frost (`4`) are not currently exposed as entities.
+Errors E1/E2 (`1`/`2`) and frost (`4`) are exposed as binary sensors (`error`, `frost`).
 
 ---
 

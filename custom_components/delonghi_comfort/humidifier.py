@@ -103,8 +103,8 @@ class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
             _LOGGER.error("Failed to turn off dehumidifier %s", self.coordinator.dsn)
 
     async def async_set_humidity(self, humidity: int) -> None:
-        # Device grid: 30-80 in steps of 5 — snap before sending.
-        humidity = max(30, min(80, int(round(humidity / 5.0)) * 5))
+        # App seekbar covers 30-80 continuously (value = progress + 30) — clamp only.
+        humidity = max(30, min(80, int(humidity)))
         if await self.coordinator.api.set_humidity_setpoint(
             self.coordinator.dsn, humidity
         ):

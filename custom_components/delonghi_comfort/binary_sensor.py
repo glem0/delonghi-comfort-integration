@@ -34,11 +34,25 @@ DEHUMIDIFIER_BINARY_SENSOR_DESCRIPTIONS = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    BinarySensorEntityDescription(
+        key="alarm_error",
+        translation_key="error",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    BinarySensorEntityDescription(
+        key="alarm_frost",
+        translation_key="frost",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
 )
 
 _ALARM_VALUES = {
-    "alarm_tank_full": 3,
-    "alarm_filter_warning": 5,
+    "alarm_tank_full": {3},
+    "alarm_filter_warning": {5},
+    "alarm_error": {1, 2},
+    "alarm_frost": {4},
 }
 
 
@@ -73,7 +87,7 @@ class DehumidifierBinarySensor(CoordinatorEntity, BinarySensorEntity):
         alarm_state = self.coordinator.data.get("alarm_state")
         if alarm_state is None:
             return None
-        return alarm_state == _ALARM_VALUES[self.entity_description.key]
+        return alarm_state in _ALARM_VALUES[self.entity_description.key]
 
     @property
     def available(self) -> bool:
