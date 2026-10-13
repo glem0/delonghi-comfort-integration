@@ -11,6 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .humidifier import DEVICE_MODE_TO_DEHUMIDIFIER, DEHUMIDIFIER_TO_DEVICE_MODE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,22 +31,24 @@ async def async_setup_entry(
 ) -> None:
     """Set up De'Longhi select entities."""
     data = hass.data[DOMAIN][config_entry.entry_id]
-    coordinators = data["coordinators"]
 
     entities = []
 
-    for coordinator in coordinators:
+    for coordinator in data["airconditioner_coordinators"]:
         entities.extend(
-            [
-                DeLonghiSelect(
-                    coordinator=coordinator,
-                    description=description,
-                )
-                for description in SELECT_DESCRIPTIONS
-            ]
+            DeLonghiSelect(coordinator=coordinator, description=description)
+            for description in SELECT_DESCRIPTIONS
         )
 
-    entities.extend([HeaterBrightness(coordinator=coordinator) for coordinator in data["heater_coordinators"]])
+    entities.extend(
+        HeaterBrightness(coordinator=coordinator)
+        for coordinator in data["heater_coordinators"]
+    )
+
+    entities.extend(
+        DehumidifierModeSelect(coordinator=coordinator)
+        for coordinator in data["dehumidifier_coordinators"]
+    )
 
     async_add_entities(entities)
 
@@ -143,3 +146,38 @@ class HeaterBrightness(CoordinatorEntity, SelectEntity):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set device brightness to %s", option)
+
+
+class DehumidifierModeSelect(CoordinatorEntity, SelectEntity):
+    """Mode select for De'Longhi dehumidifier (Dehumidification / Dry Mode / Fan Only)."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "dehumidifier_mode"
+    _attr_options = list(DEVICE_MODE_TO_DEHUMIDIFIER.values())
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"delonghi_dehumidifier_{coordinator.dsn}_mode"
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.get("device_mode")
+        return DEVICE_MODE_TO_DEHUMIDIFIER.get(value)
+
+    async def async_select_option(self, option: str) -> None:
+        value = DEHUMIDIFIER_TO_DEVICE_MODE.get(option)
+        if value is None:
+            _LOGGER.error("Unknown dehumidifier mode: %s", option)
+            return
+        success = await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, "device_mode", value
+        )
+        if success:
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to set dehumidifier mode to %s", option)
+
+    @property
+    def available(self) -> bool:
+        return super().available and "device_mode" in self.coordinator.data

@@ -78,6 +78,12 @@
       },
       "operating_hours": {
         "name": "Operating hours"
+      },
+      "heat_exchanger_temp": {
+        "name": "Heat exchanger temperature"
+      },
+      "alarm_state": {
+        "name": "Alarm state"
       }
     },
     "number": {
@@ -88,17 +94,54 @@
         "name": "Humidity setpoint"
       }
     },
-    "select": {
-      "device_mode": {
-        "name": "Device mode"
-      }
-    },
     "switch": {
       "device_power": {
         "name": "Device power"
       },
       "silent_mode": {
         "name": "Silent mode"
+      },
+      "eco_mode": {
+        "name": "Eco mode"
+      },
+      "swing": {
+        "name": "Swing"
+      }
+    },
+    "binary_sensor": {
+      "tank_full": {
+        "name": "Water tank full"
+      },
+      "filter_warning": {
+        "name": "Filter warning"
+      }
+    },
+    "humidifier": {
+      "dehumidifier": {
+        "name": "Dehumidifier",
+        "state_attributes": {
+          "mode": {
+            "name": "Mode",
+            "state": {
+              "dehumidify": "Dehumidify",
+              "dry": "Dry Mode",
+              "fan_only": "Fan Only"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "device_mode": {
+        "name": "Device mode"
+      },
+      "dehumidifier_mode": {
+        "name": "Mode",
+        "options": {
+          "dehumidify": "Dehumidify",
+          "dry": "Dry Mode",
+          "fan_only": "Fan Only"
+        }
       }
     }
   }

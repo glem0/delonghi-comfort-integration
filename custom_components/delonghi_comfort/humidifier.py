@@ -1,0 +1,120 @@
+"""Humidifier platform for De'Longhi dehumidifier devices."""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from homeassistant.components.humidifier import (
+    HumidifierDeviceClass,
+    HumidifierEntity,
+    HumidifierEntityDescription,
+    HumidifierEntityFeature,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+DEHUMIDIFIER_ENTITY_DESCRIPTION = HumidifierEntityDescription(
+    key="dehumidifier",
+    translation_key="dehumidifier",
+    device_class=HumidifierDeviceClass.DEHUMIDIFIER,
+)
+
+DEVICE_MODE_TO_DEHUMIDIFIER = {
+    1: "dehumidify",
+    2: "dry",
+    3: "fan_only",
+}
+DEHUMIDIFIER_TO_DEVICE_MODE = {v: k for k, v in DEVICE_MODE_TO_DEHUMIDIFIER.items()}
+
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up De'Longhi dehumidifier entities."""
+    data = hass.data[DOMAIN][config_entry.entry_id]
+    async_add_entities(
+        DeLonghiDehumidifier(coordinator)
+        for coordinator in data["dehumidifier_coordinators"]
+    )
+
+
+class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
+    """De'Longhi dehumidifier."""
+
+    entity_description = DEHUMIDIFIER_ENTITY_DESCRIPTION
+    _attr_has_entity_name = True
+    _attr_name = None
+    _attr_translation_key = "dehumidifier"
+    _attr_supported_features = HumidifierEntityFeature.MODES
+    _attr_available_modes = list(DEVICE_MODE_TO_DEHUMIDIFIER.values())
+    _attr_min_humidity = 30
+    _attr_max_humidity = 80
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"delonghi_dehumidifier_{coordinator.dsn}"
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True only when device is actively running."""
+        return self.coordinator.data.get("device_status") == 1
+
+    @property
+    def current_humidity(self) -> float | None:
+        return self.coordinator.data.get("current_humidity")
+
+    @property
+    def target_humidity(self) -> float | None:
+        return self.coordinator.data.get("humidity_setpoint")
+
+    @property
+    def mode(self) -> str | None:
+        value = self.coordinator.data.get("device_mode")
+        return DEVICE_MODE_TO_DEHUMIDIFIER.get(value)
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        if await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, "set_status", 1
+        ):
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to turn on dehumidifier %s", self.coordinator.dsn)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        if await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, "set_status", 2
+        ):
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to turn off dehumidifier %s", self.coordinator.dsn)
+
+    async def async_set_humidity(self, humidity: int) -> None:
+        if await self.coordinator.api.set_humidity_setpoint(
+            self.coordinator.dsn, humidity
+        ):
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to set humidity setpoint on %s", self.coordinator.dsn)
+
+    async def async_set_mode(self, mode: str) -> None:
+        value = DEHUMIDIFIER_TO_DEVICE_MODE.get(mode)
+        if value is None:
+            _LOGGER.error("Unknown dehumidifier mode: %s", mode)
+            return
+        if await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, "device_mode", value
+        ):
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to set dehumidifier mode to %s", mode)

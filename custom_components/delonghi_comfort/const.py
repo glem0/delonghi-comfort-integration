@@ -244,8 +244,9 @@ LANGUAGE_COUNTRIES = {
     "vi": "Vietnam",
 }
 
-# Device modes
-DEVICE_MODES = {1: "Cooling", 2: "Dehumidification", 3: "Fan"}
+# OEM model identifiers
+OEM_MODEL_HEATER = "DL-heater"
+OEM_MODEL_DEHUMIDIFIER = "DL-dehumidifier"
 
 # Configuration keys
 CONF_USERNAME = "username"
@@ -254,9 +255,7 @@ CONF_LANGUAGE = "language"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Default values
-DEFAULT_TEMP_SETPOINT = 23.0
-DEFAULT_DEVICE_MODE = 1  # Cooling mode
 DEFAULT_LANGUAGE = "en"
 
 # Update intervals
-SCAN_INTERVAL = 5  # seconds
+SCAN_INTERVAL = 15  # seconds

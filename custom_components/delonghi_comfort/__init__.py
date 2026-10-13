@@ -5,6 +5,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.translation import async_load_integrations
 
 from .const import (
     DOMAIN,
@@ -13,6 +14,8 @@ from .const import (
     CONF_LANGUAGE,
     CONF_SCAN_INTERVAL,
     DEFAULT_LANGUAGE,
+    OEM_MODEL_HEATER,
+    OEM_MODEL_DEHUMIDIFIER,
 )
 from .api import DeLonghiAPI
 from .coordinator import DeLonghiCoordinator
@@ -20,7 +23,9 @@ from .coordinator import DeLonghiCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
     Platform.CLIMATE,
+    Platform.HUMIDIFIER,
     Platform.NUMBER,
     Platform.SELECT,
     Platform.SENSOR,
@@ -49,30 +54,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     # Create coordinators for each device
-    coordinators = []
+    airconditioner_coordinators = []
     heater_coordinators = []
+    dehumidifier_coordinators = []
     for device in devices:
         device_info = device["device"]
         dsn = device_info["dsn"]
 
         coordinator = DeLonghiCoordinator(hass, api, dsn, device_info, entry)
         await coordinator.async_config_entry_first_refresh()
-        if device_info["oem_model"] == "DL-heater":
+        oem_model = device_info["oem_model"]
+        if oem_model == OEM_MODEL_HEATER:
             heater_coordinators.append(coordinator)
+        elif oem_model == OEM_MODEL_DEHUMIDIFIER:
+            dehumidifier_coordinators.append(coordinator)
         else:
-            coordinators.append(coordinator)
+            airconditioner_coordinators.append(coordinator)
 
     # Store API instance, devices, and coordinators in hass data
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "api": api,
         "devices": devices,
-        "coordinators": coordinators,
+        "airconditioner_coordinators": airconditioner_coordinators,
         "heater_coordinators": heater_coordinators,
+        "dehumidifier_coordinators": dehumidifier_coordinators,
     }
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Preload integration strings into the translation cache so the frontend
+    # websocket can serve entity.* keys (custom integrations are not always
+    # loaded before the first UI translation fetch).
+    await async_load_integrations(hass, {DOMAIN})
 
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(async_update_options))

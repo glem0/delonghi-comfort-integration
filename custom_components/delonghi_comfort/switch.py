@@ -28,6 +28,19 @@ SWITCH_DESCRIPTIONS = (
     ),
 )
 
+DEHUMIDIFIER_SWITCH_DESCRIPTIONS = (
+    SwitchEntityDescription(
+        key="set_eco",
+        translation_key="eco_mode",
+        icon="mdi:sprout",
+    ),
+    SwitchEntityDescription(
+        key="swing",
+        translation_key="swing",
+        icon="mdi:arrow-oscillating",
+    ),
+)
+
 HEATER_DESCRIPTIONS = (
     SwitchEntityDescription(
         key="eco",
@@ -48,30 +61,25 @@ async def async_setup_entry(
 ) -> None:
     """Set up De'Longhi switch entities."""
     data = hass.data[DOMAIN][config_entry.entry_id]
-    coordinators = data["coordinators"]
 
     entities = []
 
-    for coordinator in coordinators:
+    for coordinator in data["airconditioner_coordinators"]:
         entities.extend(
-            [
-                DeLonghiSwitch(
-                    coordinator=coordinator,
-                    description=description,
-                )
-                for description in SWITCH_DESCRIPTIONS
-            ]
+            DeLonghiSwitch(coordinator=coordinator, description=description)
+            for description in SWITCH_DESCRIPTIONS
         )
 
     for coordinator in data["heater_coordinators"]:
         entities.extend(
-            [
-                HeaterSwitch(
-                    coordinator=coordinator,
-                    description=description,
-                )
-                for description in HEATER_DESCRIPTIONS
-            ]
+            HeaterSwitch(coordinator=coordinator, description=description)
+            for description in HEATER_DESCRIPTIONS
+        )
+
+    for coordinator in data["dehumidifier_coordinators"]:
+        entities.extend(
+            DehumidifierSwitch(coordinator=coordinator, description=description)
+            for description in DEHUMIDIFIER_SWITCH_DESCRIPTIONS
         )
 
     async_add_entities(entities)
@@ -185,3 +193,49 @@ class HeaterSwitch(CoordinatorEntity, SwitchEntity):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to turn off: %s", self.entity_description.key)
+
+
+class DehumidifierSwitch(CoordinatorEntity, SwitchEntity):
+    """Switch entity for De'Longhi dehumidifier (set_eco, swing)."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, description: SwitchEntityDescription) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = (
+            f"delonghi_dehumidifier_{coordinator.dsn}_{description.key}"
+        )
+        self._attr_device_info = coordinator.get_device_info()
+
+    @property
+    def is_on(self) -> bool | None:
+        value = self.coordinator.data.get(self.entity_description.key)
+        if value is None:
+            return None
+        return value == 1
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        success = await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, self.entity_description.key, 1
+        )
+        if success:
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to turn on %s", self.entity_description.key)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        success = await self.coordinator.api.set_device_property(
+            self.coordinator.dsn, self.entity_description.key, 0
+        )
+        if success:
+            await self.coordinator.async_request_refresh()
+        else:
+            _LOGGER.error("Failed to turn off %s", self.entity_description.key)
+
+    @property
+    def available(self) -> bool:
+        return (
+            super().available
+            and self.entity_description.key in self.coordinator.data
+        )
