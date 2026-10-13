@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -277,6 +278,13 @@ class DehumidifierSensor(CoordinatorEntity, SensorEntity):
         value = self.coordinator.data.get(self.entity_description.key)
         if value is None:
             return None
+        if self.entity_description.key == "last_device_report":
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except ValueError:
+                return None
         if self.entity_description.key == "current_speed":
             return {0: "Off", 1: "Low", 2: "Medium", 3: "High"}.get(value, value)
         if self.entity_description.key == "color":

@@ -33,7 +33,7 @@ Properties delivered via `apiv1/dsns/{dsn}/properties.json`.
 | `set_status` | integer | rw | `1`=ON, `2`=OFF — command setter. Holds last command, not actual state. Always read `device_status`. |
 | `device_mode` | integer | rw | Operating mode — see [Device Mode](#device-mode) |
 | `humidity_setpoint` | decimal | rw | Target humidity %; range 30–80 |
-| `rotation_speed` | integer | rw | Fan speed setter — `1`=Low. Not exposed as HA entity (not controllable in app). |
+| `rotation_speed` | integer | rw | Fan speed setter — `1`=Low, `2`=Medium, `3`=High (per app constants). Writes are accepted by the cloud but **have no effect on observed units (DDSX220)** — `current_speed` never follows. Not exposed in De'Longhi's own app either. |
 
 ### Sensor Properties
 
