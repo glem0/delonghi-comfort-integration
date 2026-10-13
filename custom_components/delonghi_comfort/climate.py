@@ -94,7 +94,6 @@ class DeLonghiClimate(CoordinatorEntity, ClimateEntity):
             "manufacturer": "De'Longhi",
             "model": coordinator.device_model,
             "sw_version": coordinator.device_version,
-            "via_device": (DOMAIN, self._dsn),
         }
 
     @property
