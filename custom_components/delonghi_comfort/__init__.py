@@ -4,13 +4,14 @@ import hashlib
 import logging
 from pathlib import Path
 
-from homeassistant.components import frontend
+from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.translation import async_load_integrations
+from homeassistant.setup import async_setup_component
 
 from .const import (
     DOMAIN,
@@ -30,10 +31,11 @@ _LOGGER = logging.getLogger(__name__)
 
 CARD_STATIC_URL = "/delonghi_comfort_static"
 CARD_FILE_NAME = "schedule-card.js"
+SCHEDULE_PANEL_PATH = "delonghi-schedule"
 
 
 async def _async_register_schedule_card(hass: HomeAssistant) -> None:
-    """Serve the schedule Lovelace card and auto-load it as a frontend module."""
+    """Serve the schedule card/panel and auto-load the frontend module."""
     data = hass.data.setdefault(DOMAIN, {})
     if data.get("schedule_card_registered"):
         return
@@ -58,9 +60,23 @@ async def _async_register_schedule_card(hass: HomeAssistant) -> None:
         # Already registered (e.g. a reload without a full HA restart)
         pass
 
-    frontend.add_extra_js_url(
-        hass, f"{CARD_STATIC_URL}/{CARD_FILE_NAME}?v={version}"
-    )
+    module_url = f"{CARD_STATIC_URL}/{CARD_FILE_NAME}?v={version}"
+    frontend.add_extra_js_url(hass, module_url)
+
+    # Sidebar panel so the schedule can be viewed/edited as a page of its own.
+    if SCHEDULE_PANEL_PATH not in hass.data.get(frontend.DATA_PANELS, {}):
+        await async_setup_component(hass, "panel_custom", {})
+        await panel_custom.async_register_panel(
+            hass,
+            frontend_url_path=SCHEDULE_PANEL_PATH,
+            webcomponent_name="delonghi-schedule-card",
+            sidebar_title="Dehumidifier",
+            sidebar_icon="mdi:air-humidifier",
+            module_url=module_url,
+            config={},
+            require_admin=False,
+        )
+
     data["schedule_card_registered"] = True
 
 
@@ -150,6 +166,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+        if SCHEDULE_PANEL_PATH in hass.data.get(frontend.DATA_PANELS, {}):
+            frontend.async_remove_panel(hass, SCHEDULE_PANEL_PATH)
+        hass.data.get(DOMAIN, {}).pop("schedule_card_registered", None)
 
     return unload_ok
 

@@ -89,6 +89,8 @@ class DeLonghiScheduleText(CoordinatorEntity, TextEntity):
     """Editable 24-hour schedule row for a De'Longhi dehumidifier."""
 
     _attr_has_entity_name = True
+    # The visual card/panel is the primary schedule UI; keep these rows opt-in.
+    _attr_entity_registry_enabled_default = False
 
     def __init__(
         self,

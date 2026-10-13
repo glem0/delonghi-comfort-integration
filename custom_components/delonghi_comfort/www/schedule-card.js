@@ -124,7 +124,7 @@
     .grid-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
     .grid {
       display: grid;
-      grid-template-columns: var(--row-lab) repeat(24, minmax(var(--cell-w), 1fr));
+      grid-template-columns: var(--row-lab) repeat(24, minmax(var(--cell-w), var(--cell-max, 1fr)));
       grid-auto-rows: var(--cell-h);
       gap: 1px;
       width: max-content; min-width: 100%;
@@ -154,7 +154,25 @@
     .cell.s2 { background: #29b6f6; }
     .cell.s3 { background: #f9a825; }
     .cell:hover { outline: 1px solid var(--primary-color, #03a9f4); }
-    .delonghi-schedule.compact { --cell-w: 15px; }
+
+    /* Panel mode (sidebar panel / panel view): wider, centered, larger cells. */
+    .delonghi-schedule.panel {
+      max-width: 1400px; margin: 0 auto;
+      padding: 20px 24px 16px;
+      --cell-w: 34px;
+      --cell-max: 48px;
+      --cell-h: 30px;
+      --row-lab: 56px;
+    }
+    .delonghi-schedule.panel .grid { justify-content: center; }
+    .delonghi-schedule.panel .title { font-size: 20px; }
+    .delonghi-schedule.panel .cell { font-size: 12px; border-radius: 4px; }
+    .delonghi-schedule.panel .rul { font-size: 11px; }
+    .delonghi-schedule.panel .rul.day { font-size: 12px; }
+    .delonghi-schedule.panel .preset-name { min-width: 74px; }
+
+    /* Compact overrides come last so a narrow panel also shrinks its cells. */
+    .delonghi-schedule.compact { --cell-w: 15px; --cell-max: 15px; }
     .delonghi-schedule.compact .cell { font-size: 0; }
 
     /* Preset editor ---------------------------------------------------- */
@@ -231,6 +249,12 @@
       this._hass = null;
       this._built = false;
 
+      /* panel mode (sidebar custom panel) */
+      this._isPanel = false;
+      this._panel = null;
+      this._narrow = false;
+      this._route = null;
+
       /* local schedule model (source of truth for the DOM) */
       this._model = null;        // {grid, modes, activate}
       this._modelSig = null;     // signature of the data currently on screen
@@ -254,44 +278,172 @@
      * Home Assistant card API
      * --------------------------------------------------------------- */
 
+    /**
+     * Lovelace calls this with the card config. `entity` is optional: without
+     * it the sensor (and its activation switch) are auto-discovered from
+     * `hass.states`.
+     */
     setConfig(config) {
-      if (!config || !config.entity) {
+      if (!config || typeof config !== 'object' || Array.isArray(config)) {
         throw new Error(
-          "delonghi-schedule-card: 'entity' is required (the De'Longhi schedule sensor)"
+          'delonghi-schedule-card: config must be an object, e.g. ' +
+          '{entity: "sensor.dehumidifier_weekly_schedule"}'
         );
       }
-      const key = [config.entity, config.switch_entity || '', config.name || ''].join('|');
-      this._config = {
-        entity: config.entity,
-        switch_entity: config.switch_entity || null,
-        name: config.name || 'Weekly schedule',
-      };
-      if (key !== this._configKey) {
-        this._configKey = key;
-        this._built = false;
-        this._model = null;
-        this._modelSig = null;
-        this._deviceSig = null;
-        this._pendingSig = null;
-        this._dirty = false;
-        this._saving = false;
-        this._notice = null;
-        this._activateTouched = false;
-        if (this.shadowRoot) this.shadowRoot.textContent = '';
-      }
+      this._applyConfig(config);
+      this._resolveEntity();
       this._ensureBuilt();
       this._refresh();
     }
 
     set hass(hass) {
       this._hass = hass;
-      if (!this._config || !hass) return;
+      if (!hass) return;
+      // A panel element may receive hass before panel/config.
+      if (!this._config) this._applyConfig({});
+      this._resolveEntity();
       this._ensureBuilt();
       this._refresh();
     }
 
+    /**
+     * Panel mode: HA registers this element as a sidebar panel and sets
+     * `hass`, `panel`, `narrow` and `route`; `setConfig` is never called.
+     */
+    set panel(panel) {
+      this._panel = panel || null;
+      this._isPanel = true;
+      const config = panel && typeof panel.config === 'object'
+        && !Array.isArray(panel.config) ? panel.config : null;
+      if (config && !this._config) {
+        this.setConfig(config);
+      } else if (!this._config) {
+        this._applyConfig({});
+      }
+      this._resolveEntity();
+      this._ensureBuilt();
+      this._applyPanelMode();
+      this._refresh();
+    }
+
+    get panel() {
+      return this._panel;
+    }
+
+    /** Panel sidebar width flag: only used to tune the compact breakpoint. */
+    set narrow(value) {
+      this._narrow = !!value;
+      this._applyCompact();
+    }
+
+    get narrow() {
+      return this._narrow;
+    }
+
+    /** Panel route: accepted so a panel host can assign it, otherwise unused. */
+    set route(value) {
+      this._route = value || null;
+    }
+
+    get route() {
+      return this._route;
+    }
+
     getCardSize() {
       return 9;
+    }
+
+    /* --------------------------------------------------------------- *
+     * Config, panel mode & auto-discovery
+     * --------------------------------------------------------------- */
+
+    /** Normalise and store a config; `entity` may be null. */
+    _applyConfig(config) {
+      this._config = {
+        entity: typeof config.entity === 'string' && config.entity ? config.entity : null,
+        switch_entity: typeof config.switch_entity === 'string' && config.switch_entity
+          ? config.switch_entity
+          : null,
+        name: typeof config.name === 'string' && config.name ? config.name : 'Weekly schedule',
+      };
+      this._applyConfigKey();
+    }
+
+    /** Rebuild from scratch when the effective config changed. */
+    _applyConfigKey() {
+      const key = [
+        this._config.entity || '',
+        this._config.switch_entity || '',
+        this._config.name,
+      ].join('|');
+      if (key === this._configKey) return false;
+      this._configKey = key;
+      this._built = false;
+      this._model = null;
+      this._modelSig = null;
+      this._deviceSig = null;
+      this._pendingSig = null;
+      this._dirty = false;
+      this._saving = false;
+      this._notice = null;
+      this._activateTouched = false;
+      if (this.shadowRoot) this.shadowRoot.textContent = '';
+      return true;
+    }
+
+    _applyPanelMode() {
+      if (this._card) this._card.classList.toggle('panel', this._isPanel);
+    }
+
+    /** Fill in a missing entity (and switch) by discovery; true if resolved. */
+    _resolveEntity() {
+      if (!this._config || this._config.entity || !this._hass) return false;
+      const found = this._discover();
+      if (!found) return false;
+      this._config.entity = found.entity;
+      this._config.switch_entity = found.switch_entity;
+      this._applyConfigKey();
+      return true;
+    }
+
+    /**
+     * Find the schedule sensor: the first `sensor.*` carrying both `days`
+     * (keys "0".."6") and `modes` (A/B/C), preferring a `weekly_schedule` id.
+     */
+    _discover() {
+      const states = this._hass.states || {};
+      const ids = Object.keys(states);
+      const schedules = ids.filter((id) =>
+        id.startsWith('sensor.') && this._hasScheduleAttributes(states[id])
+      );
+      if (!schedules.length) return null;
+      const entity = schedules.find((id) => id.includes('weekly_schedule')) || schedules[0];
+      return { entity, switch_entity: this._findActivationSwitch(entity, ids) };
+    }
+
+    _hasScheduleAttributes(state) {
+      const attrs = (state && state.attributes) || {};
+      const days = attrs.days;
+      if (!days || typeof days !== 'object' || Array.isArray(days)) return false;
+      if (![0, 1, 2, 3, 4, 5, 6].every((day) => days[String(day)] !== undefined)) return false;
+      const modes = attrs.modes;
+      if (!modes || typeof modes !== 'object') return false;
+      return PRESET_KEYS.every((key) => modes[key] !== undefined);
+    }
+
+    /**
+     * `sensor.<base>_weekly_schedule` -> `switch.<base>_schedule`. Renamed
+     * sensors whose id already ends in `_schedule` are handled as a fallback.
+     */
+    _findActivationSwitch(entity, ids) {
+      const objectId = entity.split('.')[1] || entity;
+      const bases = [objectId.replace(/_weekly_schedule$/, '')];
+      if (objectId.endsWith('_schedule')) bases.push(objectId.replace(/_schedule$/, ''));
+      for (const base of bases) {
+        const candidate = `switch.${base}_schedule`;
+        if (ids.includes(candidate)) return candidate;
+      }
+      return null;
     }
 
     connectedCallback() {
@@ -327,6 +479,7 @@
 
       this._card = document.createElement('ha-card');
       this._card.className = 'delonghi-schedule';
+      this._applyPanelMode();
 
       this._titleEl = this._el('div', 'title', this._config.name);
       this._msgEl = this._el('div', 'msg');
@@ -495,7 +648,8 @@
     _applyCompact() {
       if (!this._card) return;
       const width = this._card.clientWidth;
-      const compact = width > 0 && width < 440;
+      const breakpoint = this._narrow ? 560 : 440;
+      const compact = width > 0 && width < breakpoint;
       if (compact === this._compact) return;
       this._compact = compact;
       this._card.classList.toggle('compact', compact);
@@ -506,8 +660,17 @@
      * --------------------------------------------------------------- */
 
     _refresh() {
-      if (!this._config || !this._hass) return;
+      if (!this._config) return;
       this._titleEl.textContent = this._config.name;
+
+      if (!this._config.entity) {
+        this._showMessage('No schedule entity found - set `entity:` in the card config.');
+        return;
+      }
+      if (!this._hass) {
+        this._showMessage('Waiting for Home Assistant...');
+        return;
+      }
 
       const device = this._readDevice();
       if (!device) {
