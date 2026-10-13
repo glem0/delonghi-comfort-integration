@@ -77,7 +77,7 @@ Properties delivered via `apiv1/dsns/{dsn}/properties.json`.
 
 | Property | Notes |
 |---|---|
-| `activate_realfeel` | Base64-encoded schedule blob for "RealFeel" feature |
+| `activate_realfeel` | RealFeel activation payload — base64 of `[flag, 2, 3, 10, 18, 23, 28, 70, 60, 50, 40]`; `flag` `1`=on, `0`=off. The app writes this companion value with **every** `device_mode` change (ON when the target mode is RealFeel): `AQIDChIXHEY8Mig=` / `AAIDChIXHEY8Mig=` |
 | `set_schedule` / `get_schedule` | Base64-encoded timer schedule blob |
 | `status_history` | Base64-encoded historical state log |
 | `set_temp_unit` | Celsius/Fahrenheit toggle — always `null` in observed data |

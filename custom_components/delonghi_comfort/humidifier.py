@@ -36,6 +36,21 @@ DEVICE_MODE_TO_DEHUMIDIFIER = {
 }
 DEHUMIDIFIER_TO_DEVICE_MODE = {v: k for k, v in DEVICE_MODE_TO_DEHUMIDIFIER.items()}
 
+# RealFeel activation payload — base64 of an 11-byte array:
+# [flag, 2, 3, 10, 18, 23, 28, 70, 60, 50, 40]. Byte 0 toggles RealFeel; the
+# rest is a constant parameter block. Mirrors the app's setDDsxDeviceMode,
+# which writes this companion value on every mode change.
+REALFEEL_ON = "AQIDChIXHEY8Mig="
+REALFEEL_OFF = "AAIDChIXHEY8Mig="
+
+
+async def async_write_device_mode(api, dsn: str, value: int) -> bool:
+    """Write device_mode together with its companion activate_realfeel flag."""
+    flag = REALFEEL_ON if value == 4 else REALFEEL_OFF
+    if not await api.set_device_property(dsn, "activate_realfeel", flag):
+        _LOGGER.warning("Failed to write activate_realfeel flag on %s", dsn)
+    return await api.set_device_property(dsn, "device_mode", value)
+
 
 
 async def async_setup_entry(
@@ -117,9 +132,7 @@ class DeLonghiDehumidifier(CoordinatorEntity, HumidifierEntity):
         if value is None:
             _LOGGER.error("Unknown dehumidifier mode: %s", mode)
             return
-        if await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, "device_mode", value
-        ):
+        if await async_write_device_mode(self.coordinator.api, self.coordinator.dsn, value):
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set dehumidifier mode to %s", mode)

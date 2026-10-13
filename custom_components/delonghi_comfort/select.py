@@ -11,7 +11,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .humidifier import DEVICE_MODE_TO_DEHUMIDIFIER, DEHUMIDIFIER_TO_DEVICE_MODE
+from .humidifier import (
+    DEHUMIDIFIER_TO_DEVICE_MODE,
+    DEVICE_MODE_TO_DEHUMIDIFIER,
+    async_write_device_mode,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -169,8 +173,8 @@ class DehumidifierModeSelect(CoordinatorEntity, SelectEntity):
         if value is None:
             _LOGGER.error("Unknown dehumidifier mode: %s", option)
             return
-        success = await self.coordinator.api.set_device_property(
-            self.coordinator.dsn, "device_mode", value
+        success = await async_write_device_mode(
+            self.coordinator.api, self.coordinator.dsn, value
         )
         if success:
             await self.coordinator.async_request_refresh()
