@@ -100,7 +100,7 @@ Write target: `apiv1/dsns/{dsn}/properties/device_mode/datapoints.json`
 
 Values confirmed against app constants (`DdsxProperty$DDSX_DEVICE_MODE`: 1=HUMIDITY, 2=LAUNDRY, 3=AIR, 4=REAL_FEEL).
 
-**Implementation:** `SelectEntity` with options `["dehumidify", "dry", "fan_only", "real_feel"]`.
+**Implementation:** `SelectEntity` with options `["Dehumidify", "Dry", "Fan only", "Real Feel"]` (display names double as option values).
 
 ---
 

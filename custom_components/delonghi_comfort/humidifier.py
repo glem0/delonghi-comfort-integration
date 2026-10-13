@@ -26,11 +26,13 @@ DEHUMIDIFIER_ENTITY_DESCRIPTION = HumidifierEntityDescription(
     device_class=HumidifierDeviceClass.DEHUMIDIFIER,
 )
 
+# Display names double as the option values (HA renders them as-is; avoids
+# relying on custom-integration translation loading for the select card).
 DEVICE_MODE_TO_DEHUMIDIFIER = {
-    1: "dehumidify",
-    2: "dry",
-    3: "fan_only",
-    4: "real_feel",
+    1: "Dehumidify",
+    2: "Dry",
+    3: "Fan only",
+    4: "Real Feel",
 }
 DEHUMIDIFIER_TO_DEVICE_MODE = {v: k for k, v in DEVICE_MODE_TO_DEHUMIDIFIER.items()}
 
